@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Generador de Cuentas de Cobro{% endblock %}
+
+{% block content %}
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary sticky-top">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="#">
+            <i class="fas fa-file-invoice-dollar me-2"></i>
+            <strong>Grupo Óptico Andes</strong>
+        </a>
+        <div class="collapse navbar-collapse">
+            <ul class="navbar-nav ms-auto">
+                <li class="nav-item">
+                    <span class="navbar-text me-3">
+                        Bienvenido, {{ session.user_id }}
+                    </span>
+                </li>
+                <li class="nav-item">
+                    <a class="btn btn-outline-light" href="{{ url_for('logout') }}">
+                        <i class="fas fa-sign-out-alt me-2"></i>Cerrar Sesión
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<main class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Columna Principal -->
+        <div class="col-lg-8">
+            <!-- Card de Subida de Archivos -->
+            <div class="card mb-4 shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-upload me-2"></i>Paso 1: Cargar Informe</h5>
+                </div>
+                <div class="card-body">
+                    <form action="{{ url_for('upload_file') }}" method="post" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label for="pdfFile" class="form-label">Selecciona el informe PDF consolidado:</label>
+                            <input class="form-control" type="file" id="pdfFile" name="pdf_file" accept=".pdf" required>
+                            <div class="form-text">Solo se permiten archivos en formato PDF.</div>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-cogs me-2"></i>Generar Cuentas de Cobro
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Card de Documentos Individuales -->
+            <div class="card mb-4 shadow-sm">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-users me-2"></i>Paso 3: Documentos Individuales</h5>
+                    {% if processed_data %}
+                        <span class="badge bg-success rounded-pill">{{ processed_data.individual_files|length }} Archivos</span>
+                    {% else %}
+                        <span class="badge bg-secondary rounded-pill">0 Archivos</span>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    {% if not processed_data %}
+                        <p class="text-muted">Aquí aparecerán los documentos individuales después de procesar el informe.</p>
+                    {% endif %}
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Nombre</th>
+                                    <th>Cédula</th>
+                                    <th class="text-center">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if processed_data and processed_data.individual_files %}
+                                    {% for file in processed_data.individual_files %}
+                                        <tr>
+                                            <td>{{ file.nombre }}</td>
+                                            <td>{{ file.cedula }}</td>
+                                            <td class="text-center">
+                                                <a href="{{ url_for('download_individual_file', filename=file.filename) }}" class="btn btn-sm btn-info" target="_blank"><i class="fas fa-eye"></i> Ver</a>
+                                                <a href="{{ url_for('download_individual_file', filename=file.filename, download=true) }}" class="btn btn-sm btn-success"><i class="fas fa-download"></i> Descargar</a>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr>
+                                        <td colspan="3" class="text-center">No hay documentos para mostrar.</td>
+                                    </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Columna Secundaria -->
+        <div class="col-lg-4">
+            <!-- Card de Documento Consolidado -->
+            <div class="card mb-4 shadow-sm">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-file-pdf me-2"></i>Paso 2: Documento Consolidado</h5>
+                </div>
+                <div class="card-body text-center">
+                    {% if processed_data and processed_data.consolidated_file %}
+                        <p id="consolidated-status">¡Listo para descargar!</p>
+                        <a href="{{ url_for('download_consolidated_file', filename=processed_data.consolidated_file) }}" class="btn btn-success w-100" id="download-consolidated">
+                            <i class="fas fa-download me-2"></i>Descargar Consolidado
+                        </a>
+                    {% else %}
+                        <p id="consolidated-status">Esperando archivo...</p>
+                        <button class="btn btn-success w-100 disabled" id="download-consolidated">
+                            <i class="fas fa-download me-2"></i>Descargar Consolidado
+                        </button>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Card de Gestión de Archivos -->
+            <div class="card mb-4 shadow-sm">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-tasks me-2"></i>Gestión de Archivos</h5>
+                </div>
+                <div class="card-body">
+                    <p>ID de Sesión: <br><small class="text-muted">{{ session.session_id }}</small></p>
+                    <a href="{{ url_for('clear_session_files') }}" class="btn btn-danger w-100">
+                        <i class="fas fa-trash-alt me-2"></i>Limpiar Archivos de Sesión
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+{% endblock %}
