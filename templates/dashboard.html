@@ -95,7 +95,7 @@
                                             <td>{{ file.cedula }}</td>
                                             <td class="text-center">
                                                 <a href="{{ url_for('download_individual_file', filename=file.filename) }}" class="btn btn-sm btn-info" target="_blank"><i class="fas fa-eye"></i> Ver</a>
-                                                <a href="{{ url_for('download_individual_file', filename=file.filename, download=true) }}" class="btn btn-sm btn-success"><i class="fas fa-download"></i> Descargar</a>
+                                                <a href="{{ url_for('download_individual_file', filename=file.filename, download='true') }}" class="btn btn-sm btn-success"><i class="fas fa-download"></i> Descargar</a>
                                             </td>
                                         </tr>
                                     {% endfor %}
