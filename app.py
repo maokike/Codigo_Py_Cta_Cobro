@@ -61,25 +61,36 @@ def extraer_datos(pdf_path):
             bloque_texto = bloque_match.group(0)
             es_optometra = "OPTOMETRA" in bloque_texto.upper()
 
-        # Calcular ICA (MODIFICADO: usar total para el cálculo)
-        tarifa_ica = 6.9 if es_optometra else 9.66
-        valor_ica = total * (tarifa_ica / 1000)  # Calcular ICA sobre el total
+        # NUEVA LÓGICA: Solo aplicar ICA si el total supera $100.000
+        if total > 100000:
+            # Calcular ICA (MODIFICADO: usar total para el cálculo)
+            tarifa_ica = 6.9 if es_optometra else 9.66
+            valor_ica = total * (tarifa_ica / 1000)  # Calcular ICA sobre el total
 
-        # Calcular subtotal (MODIFICADO: subtotal = total + valor_ica)
-        subtotal = total + valor_ica
+            # Calcular subtotal (MODIFICADO: subtotal = total + valor_ica)
+            subtotal = total + valor_ica
+            
+            print(f"✅ {nombre} - CC: {cedula} - Subtotal: {subtotal:,.0f} - Total: {total:,.0f} - Optómetra: {es_optometra} - ICA APLICADO: {valor_ica:,.0f}")
+        else:
+            # Si el total es menor o igual a $100.000, no se aplica ICA
+            tarifa_ica = 0
+            valor_ica = 0
+            subtotal = total  # Subtotal igual al total
+            
+            print(f"✅ {nombre} - CC: {cedula} - Subtotal: {subtotal:,.0f} - Total: {total:,.0f} - Optómetra: {es_optometra} - SIN RETENCIÓN ICA")
 
         persona = {
             "nombre": nombre,
             "cedula": cedula,
-            "subtotal": subtotal,  # Ahora subtotal incluye el ICA
-            "total": total,        # Total permanece igual (neto a pagar)
+            "subtotal": subtotal,
+            "total": total,
             "es_optometra": es_optometra,
             "tarifa_ica": tarifa_ica,
-            "valor_ica": valor_ica
+            "valor_ica": valor_ica,
+            "aplica_retencion": total > 100000  # Nuevo campo para indicar si aplica retención
         }
 
         personas.append(persona)
-        print(f"✅ {nombre} - CC: {cedula} - Subtotal: {subtotal:,.0f} - Total: {total:,.0f} - Optómetra: {es_optometra} - ICA: {valor_ica:,.0f}")
 
     return personas
 
@@ -184,10 +195,16 @@ def generar_pdf(persona, output_path):
     c.drawString(margin_left, current_y, "NIT: 901.308.210")
     current_y -= 25
 
+    # 4 ESPACIOS ANTES DE "DEBE A"
+    current_y -= 60  # 4 líneas * 15 puntos cada una ≈ 60 puntos
+
     # "DEBE A"
     c.setFont("Helvetica-Bold", 11)
     c.drawString(margin_left, current_y, "DEBE A")
     current_y -= 25
+
+    # 4 ESPACIOS DESPUÉS DE "DEBE A"
+    current_y -= 60  # 4 líneas * 15 puntos cada una ≈ 60 puntos
 
     # Información personal
     c.drawString(margin_left, current_y, f"NOMBRE: {persona['nombre']}")
@@ -195,7 +212,10 @@ def generar_pdf(persona, output_path):
     c.drawString(margin_left, current_y, f"C.C. No. {persona['cedula']}")
     current_y -= 30
 
-    # Valores numéricos (MODIFICADO: subtotal = total + ICA)
+    # 4 ESPACIOS DESPUÉS DE "C.C. No. 1023880041"
+    current_y -= 60  # 4 líneas * 15 puntos cada una ≈ 60 puntos
+
+    # Valores numéricos (MODIFICADO: lógica condicional para ICA)
     c.drawString(margin_left, current_y, f"Valor subtotal: {persona['subtotal']:,.0f}")
     current_y -= 20
     c.drawString(margin_left, current_y, f"Valor total: {persona['total']:,.0f}")
@@ -226,12 +246,20 @@ def generar_pdf(persona, output_path):
         c.drawString(margin_left, current_y, texto_legal)
         current_y -= 30
 
-    # Tabla de opciones (MODIFICADO: con valores centrados sobre líneas)
+    # Tabla de opciones (MODIFICADO: manejar casos con y sin retención)
+    # Si no aplica retención, mostrar campos vacíos para ICA
+    if persona['aplica_retencion']:
+        valor_ica_str = f"{persona['valor_ica']:,.0f}"
+        tarifa_ica_str = f"{persona['tarifa_ica']}"
+    else:
+        valor_ica_str = ""
+        tarifa_ica_str = ""
+
     opciones = [
         ("Responsable de IVA", "SÍ", "NO", False, None, None),
         ("Inscrito en el registro Nal de Vendedores", "SÍ", "NO", False, None, None),
         ("Código actividad económica en el Distrito Capital", "", "", True, "", ""),
-        ("Tarifa de Retención de ICA asumido", "", "", True, f"{persona['tarifa_ica']}", f"{persona['valor_ica']:,.0f}"),
+        ("Tarifa de Retención de ICA asumido", "", "", True, tarifa_ica_str, valor_ica_str),
         ("Tarifa de Retención en la Fuente", "", "", True, "", "")
     ]
 
@@ -287,7 +315,7 @@ def generar_pdf(persona, output_path):
     current_y -= 30
 
     # FIRMA (alineada a la IZQUIERDA - más abajo)
-    current_y -= 120  # Baja la firma
+    current_y -= 80  # Baja la firma
     firma_x = margin_left
     c.line(firma_x, current_y, firma_x + 150, current_y)  # Línea de firma
     current_y -= 15
