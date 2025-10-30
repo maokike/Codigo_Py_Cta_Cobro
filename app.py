@@ -62,32 +62,35 @@ def extraer_datos(pdf_path):
             es_optometra = "OPTOMETRA" in bloque_texto.upper()
 
         # NUEVA LÓGICA: Solo aplicar ICA si el total supera $100.000
+        # LÓGICA CORREGIDA: Fórmula dinámica para calcular ICA y subtotal
         if total > 100000:
-            # Calcular ICA (MODIFICADO: usar total para el cálculo)
             tarifa_ica = 6.9 if es_optometra else 9.66
-            valor_ica = total * (tarifa_ica / 1000)  # Calcular ICA sobre el total
-
-            # Calcular subtotal (MODIFICADO: subtotal = total + valor_ica)
+            
+            # Fórmula dinámica: ICA = (total × tarifa_ica) / (1000 - tarifa_ica)
+            # Esta fórmula asegura que: subtotal = total + ICA
+            valor_ica = (total * tarifa_ica) / (1000 - tarifa_ica)
+            
+            # Calcular subtotal (neto + ICA)
             subtotal = total + valor_ica
             
-            print(f"✅ {nombre} - CC: {cedula} - Subtotal: {subtotal:,.0f} - Total: {total:,.0f} - Optómetra: {es_optometra} - ICA APLICADO: {valor_ica:,.0f}")
+            print(f"✅ {nombre} - CC: {cedula} - Neto: {total:,.0f} - Subtotal: {subtotal:,.1f} - Optómetra: {es_optometra} - ICA: {valor_ica:,.1f}")
         else:
-            # Si el total es menor o igual a $100.000, no se aplica ICA
+            # Si el neto es menor o igual a $100.000, no se aplica ICA
             tarifa_ica = 0
             valor_ica = 0
-            subtotal = total  # Subtotal igual al total
+            subtotal = total  # Subtotal igual al neto
             
-            print(f"✅ {nombre} - CC: {cedula} - Subtotal: {subtotal:,.0f} - Total: {total:,.0f} - Optómetra: {es_optometra} - SIN RETENCIÓN ICA")
+            print(f"✅ {nombre} - CC: {cedula} - Neto: {total:,.0f} - Subtotal: {subtotal:,.0f} - Optómetra: {es_optometra} - SIN RETENCIÓN ICA")
 
         persona = {
             "nombre": nombre,
             "cedula": cedula,
-            "subtotal": subtotal,
-            "total": total,
+            "subtotal": subtotal,      # Neto + ICA
+            "total": total,            # Valor neto a pagar (del PDF)
             "es_optometra": es_optometra,
             "tarifa_ica": tarifa_ica,
             "valor_ica": valor_ica,
-            "aplica_retencion": total > 100000  # Nuevo campo para indicar si aplica retención
+            "aplica_retencion": total > 100000
         }
 
         personas.append(persona)
@@ -179,7 +182,7 @@ def generar_pdf(persona, output_path):
     # Título principal
     c.setFont("Helvetica-Bold", 16)
     c.drawCentredString(width/2, current_y, "CUENTA DE COBRO")
-    current_y -= 30
+    current_y -= 100
 
     # Fecha y lugar (MODIFICADO: fecha dinámica)
     c.setFont("Helvetica", 11)
@@ -196,12 +199,12 @@ def generar_pdf(persona, output_path):
     current_y -= 25
 
     # 4 ESPACIOS ANTES DE "DEBE A"
-    current_y -= 60  # 4 líneas * 15 puntos cada una ≈ 60 puntos
+    current_y -= 30  # 4 líneas * 15 puntos cada una ≈ 60 puntos
 
     # "DEBE A"
     c.setFont("Helvetica-Bold", 11)
     c.drawString(margin_left, current_y, "DEBE A")
-    current_y -= 25
+    current_y -= 2
 
     # 4 ESPACIOS DESPUÉS DE "DEBE A"
     current_y -= 60  # 4 líneas * 15 puntos cada una ≈ 60 puntos
@@ -315,7 +318,7 @@ def generar_pdf(persona, output_path):
     current_y -= 30
 
     # FIRMA (alineada a la IZQUIERDA - más abajo)
-    current_y -= 80  # Baja la firma
+    current_y -= 40  # Baja la firma
     firma_x = margin_left
     c.line(firma_x, current_y, firma_x + 150, current_y)  # Línea de firma
     current_y -= 15
